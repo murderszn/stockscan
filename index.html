@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#020508" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <title>STOCKSCAN // HUD</title>
+  <style>
+    :root {
+      --bg: #020508;
+      --panel: #050a10;
+      --cyan: #00e8ff;
+      --cyan-dim: rgba(0, 232, 255, 0.14);
+      --cyan-line: rgba(0, 232, 255, 0.45);
+      --gold: #f0b429;
+      --red: #ff3b4a;
+      --red-dim: rgba(255, 59, 74, 0.16);
+      --green: #00ff9c;
+      --green-dim: rgba(0, 255, 156, 0.14);
+      --amber: #ffb000;
+      --amber-dim: rgba(255, 176, 0, 0.14);
+      --text: #c8eef8;
+      --muted: #4a6a78;
+      --status: var(--amber);
+      --status-dim: var(--amber-dim);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .stage {
+      position: relative;
+      width: min(560px, calc(100vw - 32px));
+    }
+
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 70% 50% at 50% 40%, color-mix(in srgb, var(--status) 8%, transparent), transparent 70%),
+        linear-gradient(rgba(0, 232, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 232, 255, 0.03) 1px, transparent 1px);
+      background-size: auto, 40px 40px, 40px 40px;
+      mask-image: radial-gradient(ellipse 65% 55% at 50% 45%, #000 20%, transparent 75%);
+      transition: background 0.5s ease;
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.12) 2px,
+        rgba(0, 0, 0, 0.12) 4px
+      );
+      opacity: 0.35;
+      z-index: 5;
+    }
+
+    .hud {
+      position: relative;
+      background: linear-gradient(180deg, rgba(0, 232, 255, 0.04), transparent 40%), var(--panel);
+      border: 1px solid var(--cyan-line);
+      clip-path: polygon(
+        0 14px, 14px 0, calc(100% - 14px) 0, 100% 14px,
+        100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px)
+      );
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.8),
+        0 0 40px color-mix(in srgb, var(--status) 12%, transparent),
+        inset 0 0 60px rgba(0, 232, 255, 0.03);
+      padding: 28px 28px 24px;
+    }
+
+    .hud::before,
+    .hud::after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--cyan);
+      pointer-events: none;
+    }
+    .hud::before {
+      top: 8px; left: 8px;
+      border-right: 0; border-bottom: 0;
+    }
+    .hud::after {
+      bottom: 8px; right: 8px;
+      border-left: 0; border-top: 0;
+    }
+
+    .corners {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .corners i {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--cyan);
+    }
+    .corners i:nth-child(1) {
+      top: 8px; right: 8px;
+      border-left: 0; border-bottom: 0;
+    }
+    .corners i:nth-child(2) {
+      bottom: 8px; left: 8px;
+      border-right: 0; border-top: 0;
+    }
+
+    .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 28px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(0, 232, 255, 0.18);
+    }
+    .head .sys {
+      font-family: "Orbitron", sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      color: var(--cyan);
+      text-transform: uppercase;
+    }
+    .head .sku {
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+    .head .sku b {
+      color: var(--text);
+      font-weight: 400;
+    }
+
+    .product {
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 22px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-block {
+      text-align: center;
+      padding: 18px 0 22px;
+      border: 1px solid color-mix(in srgb, var(--status) 45%, transparent);
+      background:
+        linear-gradient(90deg, transparent, var(--status-dim), transparent),
+        rgba(0, 0, 0, 0.35);
+      clip-path: polygon(
+        12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px),
+        calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px
+      );
+      box-shadow: inset 0 0 40px var(--status-dim);
+      margin-bottom: 20px;
+      transition: border-color 0.35s ease, box-shadow 0.35s ease;
+    }
+
+    .status-block .label {
+      font-family: "Orbitron", sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.6rem, 5vw, 2.15rem);
+      letter-spacing: 0.18em;
+      color: var(--status);
+      text-shadow: 0 0 24px color-mix(in srgb, var(--status) 55%, transparent);
+      line-height: 1.15;
+      transition: color 0.35s ease, text-shadow 0.35s ease;
+    }
+
+    body.is-checking .status-block .label {
+      animation: flicker 1.1s steps(2) infinite;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: rgba(0, 232, 255, 0.15);
+      border: 1px solid rgba(0, 232, 255, 0.2);
+      margin-bottom: 20px;
+    }
+    .meta > div {
+      background: rgba(0, 0, 0, 0.45);
+      padding: 12px 14px;
+      min-width: 0;
+    }
+    .meta .span2 { grid-column: 1 / -1; }
+    .meta .k {
+      display: block;
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .meta .v {
+      font-size: 0.88rem;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      word-break: break-word;
+    }
+    .meta .v.price {
+      color: var(--gold);
+      font-family: "Orbitron", sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    button, a.btn {
+      appearance: none;
+      font-family: "Orbitron", sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      text-decoration: none;
+      text-align: center;
+      cursor: pointer;
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      background: var(--cyan-dim);
+      padding: 14px 12px;
+      clip-path: polygon(
+        8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px
+      );
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+    }
+    button:hover:not(:disabled), a.btn:hover {
+      background: rgba(0, 232, 255, 0.28);
+      color: #fff;
+    }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    button.primary {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: rgba(240, 180, 41, 0.12);
+    }
+    button.primary:hover:not(:disabled) {
+      background: rgba(240, 180, 41, 0.28);
+      color: #fff;
+    }
+
+    .err {
+      display: none;
+      margin-top: 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--red);
+      background: var(--red-dim);
+      color: #ff8a93;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      word-break: break-word;
+    }
+    .err.show { display: block; }
+
+    .footer {
+      margin-top: 18px;
+      text-align: center;
+      font-size: 0.72rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .footer .heart {
+      color: var(--red);
+      letter-spacing: 0;
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
+    }
+
+    body.state-in {
+      --status: var(--green);
+      --status-dim: var(--green-dim);
+    }
+    body.state-out {
+      --status: var(--red);
+      --status-dim: var(--red-dim);
+    }
+    body.state-unk,
+    body.is-checking {
+      --status: var(--amber);
+      --status-dim: var(--amber-dim);
+    }
+
+    @media (max-width: 420px) {
+      .actions { grid-template-columns: 1fr; }
+      .meta { grid-template-columns: 1fr; }
+      .head { flex-direction: column; gap: 6px; }
+    }
+  </style>
+</head>
+<body class="state-unk">
+  <div class="grid-bg" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <div class="stage">
+    <div class="hud">
+      <div class="corners" aria-hidden="true"><i></i><i></i></div>
+
+      <div class="head">
+        <div class="sys">STOCKSCAN</div>
+        <div class="sku">SKU <b id="sku">—</b></div>
+      </div>
+
+      <div class="product" id="product">—</div>
+
+      <div class="status-block" aria-live="polite">
+        <div class="label" id="status">—</div>
+      </div>
+
+      <div class="meta">
+        <div class="span2">
+          <span class="k">LOCATION</span>
+          <span class="v" id="location">—</span>
+        </div>
+        <div>
+          <span class="k">SKU</span>
+          <span class="v" id="sku-meta">—</span>
+        </div>
+        <div>
+          <span class="k">PRICE</span>
+          <span class="v price" id="price">—</span>
+        </div>
+        <div>
+          <span class="k">STORE ID</span>
+          <span class="v" id="store">—</span>
+        </div>
+        <div>
+          <span class="k">LAST SCAN</span>
+          <span class="v" id="scanned">—</span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="primary" id="scan">REFRESH</button>
+        <a class="btn" id="open" href="#" target="_blank" rel="noopener">OPEN</a>
+      </div>
+
+      <div class="err" id="err"></div>
+
+      <div class="footer">made by murderszn w/ <span class="heart">&lt;3</span></div>
+    </div>
+  </div>
+
+  <script>
+    function fmt(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      return d.toLocaleTimeString(undefined, {
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+      });
+    }
+
+    function apply(s) {
+      const checking = !!s.checking;
+      document.body.classList.toggle("is-checking", checking);
+      document.body.classList.remove("state-in", "state-out", "state-unk");
+
+      let state = "unk";
+      let label = "UNKNOWN";
+      if (checking) {
+        state = "unk";
+        label = "SCANNING";
+      } else if (s.in_stock === true) {
+        state = "in";
+        label = "IN STOCK";
+      } else if (s.in_stock === false) {
+        state = "out";
+        label = "OUT OF STOCK";
+      } else if (s.message) {
+        label = String(s.message).toUpperCase();
+      }
+
+      document.body.classList.add("state-" + state);
+      document.getElementById("status").textContent = label;
+      document.getElementById("product").textContent = s.product || "—";
+      document.getElementById("sku").textContent = s.sku || "—";
+      document.getElementById("sku-meta").textContent = s.sku || "—";
+      document.getElementById("price").textContent = s.price || "—";
+      document.getElementById("store").textContent = s.store_id || "—";
+      const locParts = [s.store_label, s.store_address].filter(Boolean);
+      document.getElementById("location").textContent =
+        locParts.length ? locParts.join(" · ") : "—";
+      document.getElementById("scanned").textContent = fmt(s.last_checked);
+      document.getElementById("open").href = s.url || "#";
+      document.getElementById("scan").disabled = checking;
+
+      const err = document.getElementById("err");
+      if (s.error) {
+        err.textContent = s.error;
+        err.classList.add("show");
+      } else {
+        err.classList.remove("show");
+        err.textContent = "";
+      }
+    }
+
+    async function load() {
+      document.body.classList.add("is-checking");
+      document.getElementById("status").textContent = "LOADING";
+      document.getElementById("scan").disabled = true;
+      try {
+        const res = await fetch("status.json?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("status.json " + res.status);
+        apply(await res.json());
+      } catch (e) {
+        document.body.classList.remove("is-checking");
+        document.body.classList.add("state-unk");
+        document.getElementById("status").textContent = "SIGNAL LOST";
+        document.getElementById("scan").disabled = false;
+        const err = document.getElementById("err");
+        err.textContent = String(e);
+        err.classList.add("show");
+      }
+    }
+
+    document.getElementById("scan").addEventListener("click", load);
+    load();
+    setInterval(load, 60000);
+  </script>
+</body>
+</html>
