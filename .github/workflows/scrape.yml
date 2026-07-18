@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   scrape-and-deploy:
@@ -47,7 +47,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No status change"
           else
-            git commit -m "chore: update stock status"
+            git commit -m "chore: update stock status [skip ci]"
             git push
           fi
 
