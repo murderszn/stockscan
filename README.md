@@ -45,12 +45,12 @@ It runs on an automated **30-minute cadence via GitHub Actions**, executing a st
 
 ```mermaid
 flowchart TD
-    A["⏱️ GitHub Actions Cron\n(Every 30 Mins)"] -->|Triggers Runner| B["🐍 scrape.py Execution"]
-    B -->|TLS Impersonation (curl_cffi)| C["🏬 Micro Center Store #151\n(Chicago, IL)"]
-    C -->|Extracts Inventory & Price| B
-    B -->|Writes Data| D["📄 status.json"]
-    D -->|Commit & Deploy| E["🌐 GitHub Pages Hosting"]
-    E -->|Fetch status.json| F["💻 Client Browser\n(index.html HUD)"]
+    A["⏱️ GitHub Actions Cron<br/>(Every 30 Mins)"] -->|"Triggers Runner"| B["🐍 scrape.py Execution"]
+    B -->|"TLS Impersonation (curl_cffi)"| C["🏬 Micro Center Store 151<br/>(Chicago, IL)"]
+    C -->|"Extracts Inventory & Price"| B
+    B -->|"Writes Data"| D["📄 status.json"]
+    D -->|"Commit & Deploy"| E["🌐 GitHub Pages Hosting"]
+    E -->|"Fetch status.json"| F["💻 Client Browser<br/>(index.html HUD)"]
 ```
 
 ---
