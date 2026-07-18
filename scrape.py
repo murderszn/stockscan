@@ -65,7 +65,14 @@ def scrape() -> dict:
     }
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                ],
+            )
             context = browser.new_context(
                 user_agent=(
                     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -75,6 +82,13 @@ def scrape() -> dict:
                 viewport={"width": 1400, "height": 900},
             )
             page = context.new_page()
+            page.add_init_script(
+                """
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                """
+            )
             page.goto("https://www.microcenter.com", wait_until="domcontentloaded", timeout=60000)
             context.add_cookies(
                 [
