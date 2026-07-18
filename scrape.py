@@ -19,6 +19,9 @@ PRODUCT_NAME = "Ubiquiti Pro Max 16 PoE"
 PRODUCT_SKU = "690207"
 OUT = Path(__file__).resolve().parent / "status.json"
 
+# Supported modern browser TLS impersonation profiles
+IMPERSONATION_PROFILES = ["chrome124", "chrome120", "safari17_0"]
+
 
 def parse_stock(page_source: str, store_id: str = STORE_ID) -> tuple[bool | None, str]:
     # 1. Parse var inventory array in JavaScript
@@ -82,37 +85,35 @@ def is_cloudflare_challenge(html: str) -> bool:
 def scrape_via_curl() -> tuple[bool | None, str, str | None]:
     try:
         from curl_cffi import requests
-    except ImportError:
-        raise RuntimeError("curl_cffi is not installed")
+    except ImportError as e:
+        raise RuntimeError(f"curl_cffi is not installed: {e}")
 
-    headers = {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "max-age=0",
-        "Cookie": f"storeSelected={STORE_ID}",
-        "Referer": "https://www.microcenter.com/",
-        "Sec-Ch-Ua": '"Not/A)Brand";v="8", "Chromium";v="124", "Google Chrome";v="124"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"macOS"',
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "cross-site",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    }
+    last_error: Exception | None = None
+    for profile in IMPERSONATION_PROFILES:
+        try:
+            print(f"Attempting TLS impersonation profile '{profile}'...")
+            session = requests.Session(impersonate=profile)
+            session.cookies.set("storeSelected", STORE_ID, domain=".microcenter.com")
+            res = session.get(PRODUCT_URL, timeout=20)
+            
+            if res.status_code != 200:
+                print(f"Profile '{profile}' returned HTTP status {res.status_code}")
+                continue
 
-    res = requests.get(PRODUCT_URL, impersonate="chrome124", headers=headers, timeout=15)
-    if res.status_code != 200:
-        raise RuntimeError(f"HTTP response status code {res.status_code}")
+            html = res.text
+            if is_cloudflare_challenge(html):
+                print(f"Profile '{profile}' triggered Cloudflare challenge")
+                continue
 
-    html = res.text
-    if is_cloudflare_challenge(html):
-        raise RuntimeError("Cloudflare bot protection challenge triggered via curl_cffi")
+            in_stock, message = parse_stock(html, STORE_ID)
+            price = parse_price(html)
+            print(f"Profile '{profile}' succeeded! in_stock={in_stock}, price={price}")
+            return in_stock, message, price
+        except Exception as err:
+            last_error = err
+            print(f"Profile '{profile}' error: {err}")
 
-    in_stock, message = parse_stock(html, STORE_ID)
-    price = parse_price(html)
-    return in_stock, message, price
+    raise last_error or RuntimeError("All curl_cffi TLS impersonation profiles failed or were challenged")
 
 
 def scrape_via_playwright() -> tuple[bool | None, str, str | None]:
@@ -138,13 +139,6 @@ def scrape_via_playwright() -> tuple[bool | None, str, str | None]:
                 "Chrome/126.0.0.0 Safari/537.36"
             ),
             viewport={"width": 1400, "height": 900},
-            extra_http_headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-                "sec-ch-ua": '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
-                "sec-ch-ua-mobile": "?0",
-                "sec-ch-ua-platform": '"macOS"',
-            },
         )
         page = context.new_page()
         page.add_init_script(
@@ -194,12 +188,13 @@ def scrape_via_playwright() -> tuple[bool | None, str, str | None]:
         return in_stock, message, price
 
 
-def scrape_with_retry(max_retries: int = 3) -> tuple[bool | None, str, str | None]:
+def scrape_with_retry(max_retries: int = 2) -> tuple[bool | None, str, str | None]:
     last_err: Exception | None = None
-    # Method 1: Try curl_cffi first (TLS fingerprint impersonation)
+    
+    # Method 1: Try curl_cffi with multiple TLS impersonation profiles
     for attempt in range(1, max_retries + 1):
         try:
-            print(f"Scraping via curl_cffi (attempt {attempt}/{max_retries})...")
+            print(f"Scrape via curl_cffi attempt {attempt}/{max_retries}...")
             return scrape_via_curl()
         except Exception as e:
             last_err = e
@@ -210,7 +205,7 @@ def scrape_with_retry(max_retries: int = 3) -> tuple[bool | None, str, str | Non
     # Method 2: Fallback to Playwright if curl_cffi fails
     for attempt in range(1, max_retries + 1):
         try:
-            print(f"Scraping via Playwright fallback (attempt {attempt}/{max_retries})...")
+            print(f"Scrape via Playwright fallback attempt {attempt}/{max_retries}...")
             return scrape_via_playwright()
         except Exception as e:
             last_err = e
@@ -246,7 +241,7 @@ def scrape() -> dict:
     }
 
     try:
-        in_stock, message, price = scrape_with_retry(max_retries=3)
+        in_stock, message, price = scrape_with_retry(max_retries=2)
         status.update(
             {
                 "in_stock": in_stock,
