@@ -402,10 +402,10 @@
         label = "SCANNING";
       } else if (s.in_stock === true) {
         state = "in";
-        label = "IN STOCK";
+        label = s.message || "IN STOCK";
       } else if (s.in_stock === false) {
         state = "out";
-        label = "OUT OF STOCK";
+        label = s.message || "OUT OF STOCK";
       } else if (s.message) {
         label = String(s.message).toUpperCase();
       }
