@@ -5,10 +5,10 @@
   "store_id": "151",
   "store_label": "Chicago, IL",
   "store_address": "2645 N Elston Ave",
-  "price": "$399.99",
+  "price": "$430.99",
   "in_stock": false,
   "message": "OUT OF STOCK",
-  "last_checked": "2026-07-31T04:57:46.456023+00:00",
+  "last_checked": "2026-07-31T07:52:32.063529+00:00",
   "checking": false,
   "error": null
 }
