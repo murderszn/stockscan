@@ -8,7 +8,7 @@
   "price": "$430.99",
   "in_stock": true,
   "message": "IN STOCK",
-  "last_checked": "2026-08-24T09:43:37.394571+00:00",
+  "last_checked": "2026-08-24T10:35:25.588961+00:00",
   "checking": false,
-  "error": null
+  "error": "Cloudflare bot protection challenge triggered via Playwright"
 }
